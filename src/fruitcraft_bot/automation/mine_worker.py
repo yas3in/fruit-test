@@ -1,100 +1,58 @@
-"""Mine collection worker using server-calculated timing."""
+"""MineWorker: Automated gold collection with interval scheduling and countdown."""
 
 import asyncio
+from datetime import datetime, timezone, timedelta
 import logging
-import time
 from typing import Optional
 
-from fruitcraft_bot.api.errors import CaptchaRequiredError, FruitCraftError
-from fruitcraft_bot.config import AccountConfig
-from fruitcraft_bot.services.auth import AuthService
-from fruitcraft_bot.services.mine import MineService
-from fruitcraft_bot.storage.state import StateDatabase
+from src.fruitcraft_bot.automation.base_worker import BaseWorker
+from src.fruitcraft_bot.services.mine_service import mine_service
+from src.fruitcraft_bot.core.config import settings
+from src.fruitcraft_bot.db.database import AsyncSessionLocal
 
-logger = logging.getLogger("fruitcraft.automation.mine")
+logger = logging.getLogger(__name__)
 
 
-class MineWorker:
-    """Automated mine collection worker using server-allowed schedule."""
-
+class MineWorker(BaseWorker):
     def __init__(
         self,
-        account_config: AccountConfig,
-        auth_service: AuthService,
-        mine_service: MineService,
-        db: Optional[StateDatabase] = None,
+        account_id: str,
+        account_name: str,
+        interval_minutes: int = 30
     ):
-        self.config = account_config
-        self.auto_cfg = account_config.automation
-        self.auth = auth_service
-        self.mine = mine_service
-        self.db = db or StateDatabase()
-        self._running = False
-        self.total_collected = 0
+        super().__init__(account_id, account_name, worker_type="MineWorker")
+        self.interval_minutes = interval_minutes
 
-    def stop(self):
-        self._running = False
+    async def execute_step(self):
+        self.next_action = "Collecting mined gold"
+        await self._emit_status()
 
-    async def run(self):
-        """Execute mine worker loop."""
-        self._running = True
-
-        if not self.auth.player_info:
+        async with AsyncSessionLocal() as session:
             try:
-                await self.auth.load_player(self.config.restore_key, self.config.device)
+                res = await mine_service.collect_gold(
+                    account_id=self.account_id,
+                    db=session
+                )
+                gold_collected = res.get("gold_collected", 0)
+                self.action_count += 1
+                self.last_action = f"Collected {gold_collected:,} gold"
+                self.last_error = None
             except Exception as e:
-                logger.error("[%s] Auth failed in mine worker: %s", self.config.account_id, e)
-                return
+                self.last_error = str(e)
+                logger.warning("Mine collection error: %s", e)
 
-        while self._running:
-            try:
-                # 1. Evaluate current mine collection status
-                status = self.mine.get_status()
+        # Wait until next collection cycle
+        wait_seconds = self.interval_minutes * 60
+        self.status = "WAITING"
+        self.next_action = f"Next collection in {self.interval_minutes}m"
+        await self._emit_status()
 
-                if status.allowed:
-                    logger.info("[%s] Gold collection allowed. Collecting now...", self.config.account_id)
-                    res = await self.mine.collect()
-                    self.total_collected += res.collected_gold
-                    self.db.record_gold_collection(
-                        account_id=self.config.account_id,
-                        collected=res.collected_gold,
-                        player_gold=res.player_gold,
-                    )
+        # Sleep in small slices to respond promptly to stop/pause requests
+        elapsed = 0
+        while elapsed < wait_seconds and not self._stop_requested:
+            await self._pause_event.wait()
+            await asyncio.sleep(5)
+            elapsed += 5
 
-                    if res.needs_captcha:
-                        logger.warning("[%s] CAPTCHA required during mine collection. Stopping.", self.config.account_id)
-                        self._running = False
-                        break
-
-                    # Re-evaluate status after collection
-                    status = self.mine.get_status()
-
-                # 2. Calculate sleep interval until next allowed time
-                wait_seconds = max(5.0, status.seconds_until_next)
-                logger.info("[%s] Mine next collection ready in %.1fs (allowed_at=%s). Sleeping...", self.config.account_id, wait_seconds, status.next_allowed_at)
-
-                # Sleep in short increments to allow graceful cancellation
-                slept = 0.0
-                step = 2.0
-                while self._running and slept < wait_seconds:
-                    await asyncio.sleep(min(step, wait_seconds - slept))
-                    slept += step
-
-            except CaptchaRequiredError:
-                logger.warning("[%s] CAPTCHA required in mine worker. Halting.", self.config.account_id)
-                self._running = False
-                break
-
-            except FruitCraftError as e:
-                self.db.record_error(self.config.account_id, e.endpoint or "mine", e.code or 0, e.message)
-                if self.auto_cfg.stop_on_error:
-                    self._running = False
-                    break
-                await asyncio.sleep(10.0)
-
-            except Exception as e:
-                logger.error("[%s] Error in mine worker: %s", self.config.account_id, e)
-                self._running = False
-                break
-
-        logger.info("[%s] Mine worker stopped. Total gold collected: %d", self.config.account_id, self.total_collected)
+        if not self._stop_requested and self.status != "PAUSED":
+            self.status = "RUNNING"
