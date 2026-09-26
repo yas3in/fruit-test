@@ -4,6 +4,8 @@
 secrets/
 *.passport
 *.key
+*.fb
+myfriutlib/*.fb
 
 # Python
 __pycache__/
