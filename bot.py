@@ -34,15 +34,13 @@ from fruitcraft_bot.bot_actions import (
 
 
 def main():
-    parser = argparse.ArgumentParser(description="FruitCraft Automation Bot using fruitbot")
+    parser = argparse.ArgumentParser(description="FruitCraft Automation Bot using fruitbot (Direct Connection)")
     parser.add_argument("command", nargs="?", choices=["info", "quest", "battle", "mine", "menu"], default="menu",
                         help="Action to perform: info, quest, battle, mine, menu")
     parser.add_argument("--count", type=int, default=0, help="Number of quests or battles (0 = infinite loop for quests)")
     parser.add_argument("--delay", type=float, default=8.0, help="Delay in seconds between quests/attacks (default: 8.0)")
     parser.add_argument("--session", type=str, default="fruit", help="Session file name (default: fruit -> fruit.fb)")
     parser.add_argument("--key", type=str, default=None, help="FruitCraft Restore Key")
-    parser.add_argument("--proxy", type=str, default=None, help="Proxy URL (default: http://127.0.0.1:10501)")
-    parser.add_argument("--no-proxy", action="store_true", help="Disable proxy and connect directly")
     parser.add_argument("--base-url", type=str, default=None, help="Game API base URL")
 
     args = parser.parse_args()
@@ -50,9 +48,7 @@ def main():
     bot = get_configured_client(
         session_name=args.session,
         restore_key=args.key,
-        proxy_url=args.proxy,
-        base_url=args.base_url,
-        no_proxy=args.no_proxy
+        base_url=args.base_url
     )
 
     if args.command == "info":

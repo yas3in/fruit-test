@@ -1,11 +1,11 @@
 """
 Core bot actions and automation routines using fruitbot library.
 Supports:
-- Auto quest with 1 weakest card, 10-card fallback rotation, and 2s delay.
-- Auto battle with top attack cards.
+- Auto quest with 1 weakest card, 10-card fallback rotation, and 8s delay.
+- Auto battle with top attack cards and 8s delay.
 - Mine collection.
 - Persistent session management (fixing Error 124 / PlayingOnAnotherDevice).
-- Proxy support on port 10501.
+- Direct connection (No proxy).
 """
 
 import os
@@ -14,12 +14,6 @@ import time
 import shutil
 import logging
 from typing import List, Dict, Any, Optional
-
-import urllib3
-try:
-    from urllib3.contrib.socks import SOCKSProxyManager
-except ImportError:
-    SOCKSProxyManager = None
 
 try:
     from dotenv import load_dotenv
@@ -65,13 +59,11 @@ def ensure_session_files():
 def get_configured_client(
     session_name: str = "fruit",
     restore_key: Optional[str] = None,
-    proxy_url: Optional[str] = None,
     base_url: Optional[str] = None,
-    no_proxy: bool = False,
     timeout: int = 15
 ) -> Client:
     """
-    Initialize fruitbot.Client with persistent session and optional proxy on port 10501.
+    Initialize fruitbot.Client with persistent session and direct connection.
     Reuses fruit.fb (fixed passport, udid, mobile_model) to prevent session conflicts (Error 124).
     """
     ensure_session_files()
@@ -79,22 +71,9 @@ def get_configured_client(
     key = restore_key or os.getenv("FRUITCRAFT_RESTORE_KEY", "head9229burst65")
     b_url = base_url or os.getenv("FRUITCRAFT_BASE_URL", "http://iran.fruitcraft.ir")
 
-    if no_proxy:
-        p_url = None
-    elif proxy_url is not None:
-        p_url = proxy_url
-    else:
-        # Default to port 10501 proxy as requested by user
-        env_proxy = os.getenv("FRUITCRAFT_PROXY") or os.getenv("PROXY_URL")
-        p_url = env_proxy or f"http://127.0.0.1:{os.getenv('PROXY_PORT', '10501')}"
-
-    print(f"🍉 تنظیم کلاینت FruitCraft (FruitBot v1.6.1)...")
+    print(f"🍉 تنظیم کلاینت FruitCraft (اتصال مستقیم)...")
     print(f"   نام سشن  : {session_name} (فایل: {session_name}.fb)")
     print(f"   آدرس سرور : {b_url}")
-    if p_url:
-        print(f"   پروکسی    : {p_url} (پورت 10501)")
-    else:
-        print("   پروکسی    : اتصال مستقیم (No proxy)")
 
     bot = Client(
         session_name=session_name,
@@ -102,32 +81,6 @@ def get_configured_client(
         base_url=b_url,
         time_out=timeout
     )
-
-    if p_url:
-        try:
-            network_instance = bot.sendRequest.__self__
-            headers = network_instance.headers
-
-            if p_url.startswith("socks5://") or p_url.startswith("socks5h://"):
-                if SOCKSProxyManager is not None:
-                    network_instance.http = SOCKSProxyManager(
-                        p_url,
-                        timeout=timeout,
-                        headers=headers
-                    )
-                    print(f"   ✅ پروکسی SOCKS5 متصل شد.")
-                else:
-                    print("⚠️ کتابخانه PySocks نصب نیست. اجرای بدون SOCKS.")
-            elif p_url.startswith("http://") or p_url.startswith("https://"):
-                network_instance.http = urllib3.ProxyManager(
-                    p_url,
-                    timeout=timeout,
-                    headers=headers
-                )
-                print(f"   ✅ پروکسی HTTP متصل شد.")
-        except Exception as e:
-            print(f"⚠️ امکان اتصال پراکسی وجود نداشت: {e}")
-
     return bot
 
 

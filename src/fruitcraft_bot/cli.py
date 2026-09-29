@@ -16,14 +16,11 @@ from fruitcraft_bot.bot_actions import (
 
 @click.group()
 @click.option("--key", help="FruitCraft Restore Key")
-@click.option("--proxy", help="Proxy URL (default: http://127.0.0.1:10501)")
-@click.option("--no-proxy", is_flag=True, help="Disable proxy")
 @click.pass_context
-def cli(ctx, key, proxy, no_proxy):
+def cli(ctx, key):
     """FruitCraft Unofficial Automation CLI (powered by fruitbot)."""
     ctx.ensure_object(dict)
-    proxy_target = None if no_proxy else (proxy or "http://127.0.0.1:10501")
-    ctx.obj["bot"] = get_configured_client(restore_key=key, proxy_url=proxy_target)
+    ctx.obj["bot"] = get_configured_client(restore_key=key)
 
 
 @cli.command()

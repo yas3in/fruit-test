@@ -22,10 +22,10 @@ class Settings(BaseSettings):
     admin_username: str = Field(default="admin", alias="ADMIN_USERNAME")
     admin_password: str = Field(default="admin123", alias="ADMIN_PASSWORD")
 
-    # Connection & Proxy (Default port 10501)
-    proxy_enabled: bool = Field(default=True, alias="PROXY_ENABLED")
-    proxy_url: str = Field(default="http://127.0.0.1:10501", alias="PROXY_URL")
-    proxy_port: int = Field(default=10501, alias="PROXY_PORT")
+    # Connection (Direct)
+    proxy_enabled: bool = Field(default=False, alias="PROXY_ENABLED")
+    proxy_url: Optional[str] = Field(default=None, alias="PROXY_URL")
+    proxy_port: Optional[int] = Field(default=None, alias="PROXY_PORT")
 
     # FruitCraft API
     base_url: str = Field(default="http://iran.fruitcraft.ir", alias="FRUITCRAFT_BASE_URL")
