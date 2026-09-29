@@ -4,9 +4,10 @@ FruitCraft Automation Bot CLI (Powered by fruitbot).
 
 Usage:
   python bot.py info              # Display player profile & stats & top 10 weakest cards
-  python bot.py quest             # Run auto quest loop (1 weakest card, 10-card fallback, 2s sleep)
+  python bot.py quest             # Run auto quest loop (1 weakest card, 10-card fallback, 8s sleep)
   python bot.py quest --count 20  # Run 20 auto quests
-  python bot.py battle            # Run auto battles (default 10)
+  python bot.py quest --delay 8   # Run auto quests with custom delay (default: 8s)
+  python bot.py battle            # Run auto battles (default 10, 8s delay)
   python bot.py battle --count 5  # Run 5 battles
   python bot.py mine              # Collect mined gold
   python bot.py menu              # Interactive Persian menu
@@ -37,6 +38,7 @@ def main():
     parser.add_argument("command", nargs="?", choices=["info", "quest", "battle", "mine", "menu"], default="menu",
                         help="Action to perform: info, quest, battle, mine, menu")
     parser.add_argument("--count", type=int, default=0, help="Number of quests or battles (0 = infinite loop for quests)")
+    parser.add_argument("--delay", type=float, default=8.0, help="Delay in seconds between quests/attacks (default: 8.0)")
     parser.add_argument("--session", type=str, default="fruit", help="Session file name (default: fruit -> fruit.fb)")
     parser.add_argument("--key", type=str, default=None, help="FruitCraft Restore Key")
     parser.add_argument("--proxy", type=str, default=None, help="Proxy URL (default: http://127.0.0.1:10501)")
@@ -56,10 +58,10 @@ def main():
     if args.command == "info":
         action_account_info(bot)
     elif args.command == "quest":
-        action_auto_quest(bot, count=args.count)
+        action_auto_quest(bot, count=args.count, delay=args.delay)
     elif args.command == "battle":
         count = args.count if args.count > 0 else 10
-        action_auto_battle(bot, count=count)
+        action_auto_battle(bot, count=count, delay=args.delay)
     elif args.command == "mine":
         action_collect_mine(bot)
     else:

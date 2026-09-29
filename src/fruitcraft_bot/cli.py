@@ -35,18 +35,20 @@ def info(ctx):
 
 @cli.command()
 @click.option("--count", default=0, help="Number of quests (0 = infinite)")
+@click.option("--delay", default=8.0, help="Delay in seconds between quests (default: 8.0)")
 @click.pass_context
-def quest(ctx, count):
-    """Run auto quest (picks single weakest card, 2s sleep between quests)."""
-    action_auto_quest(ctx.obj["bot"], count=count)
+def quest(ctx, count, delay):
+    """Run auto quest (picks single weakest card, 8s sleep between quests)."""
+    action_auto_quest(ctx.obj["bot"], count=count, delay=delay)
 
 
 @cli.command()
 @click.option("--count", default=10, help="Number of battles")
+@click.option("--delay", default=8.0, help="Delay in seconds between battles (default: 8.0)")
 @click.pass_context
-def battle(ctx, count):
+def battle(ctx, count, delay):
     """Run auto battle against opponents."""
-    action_auto_battle(ctx.obj["bot"], count=count)
+    action_auto_battle(ctx.obj["bot"], count=count, delay=delay)
 
 
 @cli.command()

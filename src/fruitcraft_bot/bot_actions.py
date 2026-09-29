@@ -323,7 +323,7 @@ def action_account_info(bot: Client):
     print("=" * 65 + "\n")
 
 
-def action_auto_quest(bot: Client, count: int = 0):
+def action_auto_quest(bot: Client, count: int = 0, delay: float = 8.0):
     """
     Quest Automation Loop:
     1. Selects exactly ONE card per quest.
@@ -332,7 +332,7 @@ def action_auto_quest(bot: Client, count: int = 0):
        - Weakest card is checked. If available, use it for quest.
        - If in cooldown, move to next weakest card (up to 10 cards).
        - If all 10 cards are in cooldown, pause 5s and restart check from weakest.
-    4. Sleeps 2 seconds after each quest, then runs the next quest.
+    4. Sleeps 8 seconds after each quest (or configured delay), then runs the next quest.
     """
     print("\n" + "=" * 65)
     print("📜 شروع اجرای خودکار ماموریت‌ها (Auto Quest)")
@@ -340,7 +340,7 @@ def action_auto_quest(bot: Client, count: int = 0):
     print("   قانون ۲: اولویت با ضعیف‌ترین و پایین‌ترین لول کارت")
     print("   قانون ۳: بررسی ترتیبی تا ۱۰ کارت در صورت در دسترس نبودن")
     print("   قانون ۴: شروع مجدد از کارت ۱ در صورت پر بودن کول‌داون هر ۱۰ کارت")
-    print("   قانون ۵: ۲ ثانیه اسلیپ بعد از هر ماموریت")
+    print(f"   قانون ۵: {delay:g} ثانیه اسلیپ بعد از هر ماموریت")
     print(f"   تعداد هدف: {'نامحدود (حلقه بی‌نهایت - با Ctrl+C متوقف می‌شود)' if count <= 0 else f'{count} ماموریت'}")
     print("=" * 65 + "\n")
 
@@ -417,9 +417,9 @@ def action_auto_quest(bot: Client, count: int = 0):
                 time.sleep(5)
                 continue
 
-            # 5. Sleep 2 seconds before next quest
-            print("   ⏳ ۲ ثانیه اسلیپ قبل از ماموریت بعدی...")
-            time.sleep(2)
+            # 5. Sleep before next quest
+            print(f"   ⏳ {delay:g} ثانیه اسلیپ قبل از ماموریت بعدی...")
+            time.sleep(delay)
 
         except KeyboardInterrupt:
             print("\n🛑 اجرای ماموریت‌ها توسط کاربر متوقف شد.")
@@ -444,11 +444,12 @@ def action_auto_quest(bot: Client, count: int = 0):
     print("=" * 65 + "\n")
 
 
-def action_auto_battle(bot: Client, count: int = 10):
+def action_auto_battle(bot: Client, count: int = 10, delay: float = 8.0):
     """Execute automated battles with top cards."""
     print("\n" + "=" * 60)
     print("⚔️ شروع نبرد خودکار (Auto Battle)")
     print(f"   تعداد نبرد هدف: {count}")
+    print(f"   فاصله زمانی بین حملات: {delay:g} ثانیه")
     print("=" * 60)
 
     wins = 0
@@ -499,7 +500,7 @@ def action_auto_battle(bot: Client, count: int = 10):
                 losses += 1
                 print(f"💀 شکست در برابر {target_name}")
 
-            time.sleep(3)
+            time.sleep(delay)
 
         except CaptchaRequired:
             print("\n🚨 کپچا مورد نیاز است! فرآیند نبرد متوقف شد.")
@@ -539,8 +540,8 @@ def interactive_menu(bot: Client):
         print("🍉 منوی ربات فروت‌کرافت (FruitCraft Bot)")
         print("=" * 50)
         print("1. 👤 اطلاعات اکانت (Account Information)")
-        print("2. 📜 ماموریت خودکار (Auto Quest - کارت ضعیف و ۲ ثانیه اسلیپ)")
-        print("3. ⚔️ نبرد خودکار (Auto Battle)")
+        print("2. 📜 ماموریت خودکار (Auto Quest - کارت ضعیف و ۸ ثانیه اسلیپ)")
+        print("3. ⚔️ نبرد خودکار (Auto Battle - ۸ ثانیه اسلیپ)")
         print("4. ⛏️ جمع‌آوری طلای معدن (Collect Mined Gold)")
         print("0. ❌ خروج (Exit)")
         print("=" * 50)
@@ -556,11 +557,11 @@ def interactive_menu(bot: Client):
         elif choice == "2":
             cnt_str = input("تعداد ماموریت (0 برای اجرای نامحدود): ").strip()
             cnt = int(cnt_str) if cnt_str.isdigit() else 0
-            action_auto_quest(bot, count=cnt)
+            action_auto_quest(bot, count=cnt, delay=8.0)
         elif choice == "3":
             cnt_str = input("تعداد نبردها (پیش‌فرض 10): ").strip()
             cnt = int(cnt_str) if cnt_str.isdigit() else 10
-            action_auto_battle(bot, count=cnt)
+            action_auto_battle(bot, count=cnt, delay=8.0)
         elif choice == "4":
             action_collect_mine(bot)
         elif choice == "0":
