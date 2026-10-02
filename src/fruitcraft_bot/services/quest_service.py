@@ -46,27 +46,25 @@ class QuestService:
 
         client = await client_pool.get_client(account.id, account.restore_key)
 
-        # Get cards
+        # Load player data and select exactly 1 weakest card using 10-card fallback rotation
+        from src.fruitcraft_bot.bot_actions import parse_cards_list, get_sorted_weakest_cards, is_card_ready
+
         player_data = await client.load_player()
-        cards_raw = player_data.get("cards", [])
-        if isinstance(cards_raw, dict):
-            cards_list = list(cards_raw.values())
-        elif isinstance(cards_raw, list):
-            cards_list = cards_raw
-        else:
-            cards_list = []
+        cards_list = parse_cards_list(player_data)
+        candidates = get_sorted_weakest_cards(cards_list, limit=10)
+        if not candidates:
+            raise ValueError("No cards found in player collection.")
 
-        usable_cards = []
-        for c in cards_list:
-            if isinstance(c, dict) and not c.get("in_cooldown", False):
-                cid = c.get("id", c.get("card_id"))
-                if cid:
-                    usable_cards.append(int(cid))
+        selected_card = None
+        for candidate in candidates:
+            if is_card_ready(candidate):
+                selected_card = candidate
+                break
 
-        if not usable_cards:
-            raise ValueError("No usable cards found for quest.")
+        if not selected_card:
+            raise ValueError("All 10 weakest cards are currently in cooldown.")
 
-        quest_cards = usable_cards[:4]
+        quest_cards = [selected_card["id"]]
         res = await client.do_quest(card_ids=quest_cards)
 
         gold_earned = int(res.get("gold", res.get("gold_earned", 0)))

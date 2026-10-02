@@ -19,7 +19,7 @@ class QuestWorker(BaseWorker):
         account_id: str,
         account_name: str,
         max_quests: int = 30,
-        delay_min: float = 4.0,
+        delay_min: float = 8.0,
         delay_max: float = 8.0
     ):
         super().__init__(account_id, account_name, worker_type="QuestWorker")

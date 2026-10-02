@@ -63,6 +63,16 @@ class FruitbotClientWrapper:
         self.base_url = base_url or settings.base_url
         self._lock = asyncio.Lock()
 
+        # Ensure persistent session data is reused to avoid Error 124
+        import os
+        import shutil
+        session_file = f"fruit_{account_id}.fb"
+        if not os.path.exists(session_file) and os.path.exists("fruit.fb"):
+            try:
+                shutil.copy("fruit.fb", session_file)
+            except Exception:
+                pass
+
         # Initialize underlying fruitbot client
         self.raw_client = FruitbotClient(
             session_name=f"fruit_{account_id}",
@@ -71,7 +81,7 @@ class FruitbotClientWrapper:
             time_out=settings.api_timeout
         )
 
-        # Configure connection proxy (e.g. port 10501)
+        # Configure connection proxy if enabled
         if self.proxy_url:
             setup_fruitbot_network(self.raw_client, self.proxy_url)
 

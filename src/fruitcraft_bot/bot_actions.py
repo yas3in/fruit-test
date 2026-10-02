@@ -486,6 +486,19 @@ def action_collect_mine(bot: Client):
         print(f"⚠️ خطای جمع‌آوری طلا از معدن: {e}")
 
 
+def action_start_dashboard(host: str = "0.0.0.0", port: int = 8000):
+    """Start the FruitCraft Web Admin Dashboard."""
+    import uvicorn
+    print("\n" + "=" * 65)
+    print("🚀 در حال راه‌اندازی پنل وب داشبورد فروت‌کرافت...")
+    print(f"🌐 آدرس در مرورگر: http://localhost:{port}")
+    print("👤 نام کاربری ورود: admin")
+    print("🔑 کلمه عبور ورود: admin123")
+    print("⚡ دسترسی زنده به وضعیت اکانت، کنترل ربات‌های بتل، معدن، ماموریت و کارت‌ها")
+    print("=" * 65 + "\n")
+    uvicorn.run("src.fruitcraft_bot.main:app", host=host, port=port, reload=False)
+
+
 def interactive_menu(bot: Client):
     """Interactive console menu."""
     while True:
@@ -496,11 +509,12 @@ def interactive_menu(bot: Client):
         print("2. 📜 ماموریت خودکار (Auto Quest - کارت ضعیف و ۸ ثانیه اسلیپ)")
         print("3. ⚔️ نبرد خودکار (Auto Battle - ۸ ثانیه اسلیپ)")
         print("4. ⛏️ جمع‌آوری طلای معدن (Collect Mined Gold)")
+        print("5. 🌐 راه‌اندازی پنل وب داشبورد گرافیکی (Web Dashboard)")
         print("0. ❌ خروج (Exit)")
         print("=" * 50)
 
         try:
-            choice = input("شماره گزینه را وارد کنید [0-4]: ").strip()
+            choice = input("شماره گزینه را وارد کنید [0-5]: ").strip()
         except (KeyboardInterrupt, EOFError):
             print("\nخداحافظ!")
             break
@@ -517,8 +531,10 @@ def interactive_menu(bot: Client):
             action_auto_battle(bot, count=cnt, delay=8.0)
         elif choice == "4":
             action_collect_mine(bot)
+        elif choice == "5":
+            action_start_dashboard()
         elif choice == "0":
             print("خروج از برنامه. موفق باشید!")
             break
         else:
-            print("گزینه نامعتبر است! لطفاً عددی بین 0 تا 4 وارد کنید.")
+            print("گزینه نامعتبر است! لطفاً عددی بین 0 تا 5 وارد کنید.")
