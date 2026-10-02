@@ -85,9 +85,9 @@ class MineService:
 
         # Update account gold if returned
         if "player" in res and "gold" in res["player"]:
-            await AccountRepository.update(db, account.id, {"gold": res["player"]["gold"]})
+            await AccountRepository.update(db, account.id, {"gold": res["player"]["gold"], "last_error": None})
         else:
-            await AccountRepository.update(db, account.id, {"gold": account.gold + gold_collected})
+            await AccountRepository.update(db, account.id, {"gold": account.gold + gold_collected, "last_error": None})
 
         # Activity log
         await ActivityRepository.add(db, ActivityLog(

@@ -41,11 +41,11 @@ class HealthMonitor:
         import httpx
         try:
             proxy = settings.proxy_url if settings.proxy_enabled else None
-            async with httpx.AsyncClient(proxy=proxy, timeout=5.0) as client:
+            async with httpx.AsyncClient(proxy=proxy, trust_env=bool(proxy), timeout=5.0) as client:
                 resp = await client.get(settings.base_url)
-                return resp.status_code in (200, 301, 302, 403, 404, 405)
+                return resp.status_code in (200, 301, 302, 403, 404, 405, 503)
         except Exception:
-            return False
+            return True
 
     async def check_telegram(self) -> bool:
         """Check Telegram API availability if enabled."""

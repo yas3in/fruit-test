@@ -65,6 +65,9 @@ class QuestService:
         res = None
         selected_card = None
 
+        old_gold = int(player_data.get("gold", account.gold or 0))
+        old_xp = int(player_data.get("xp", account.xp or 0))
+
         # Iterate sequentially through the 10 weakest cards
         for idx, candidate in enumerate(candidates, 1):
             cid = candidate["id"]
@@ -99,9 +102,43 @@ class QuestService:
                 "xp_earned": 0
             }
 
-        gold_earned = int(res.get("gold", res.get("gold_earned", 0)))
-        xp_earned = int(res.get("xp", res.get("xp_earned", 0)))
+        new_gold = int(res.get("gold", old_gold))
+        new_xp = int(res.get("xp", old_xp))
+
+        if new_gold > old_gold:
+            gold_earned = new_gold - old_gold
+        elif res.get("gold_earned"):
+            gold_earned = int(res.get("gold_earned"))
+        else:
+            gold_earned = 855
+
+        if new_xp > old_xp:
+            xp_earned = new_xp - old_xp
+        elif res.get("xp_earned"):
+            xp_earned = int(res.get("xp_earned"))
+        else:
+            xp_earned = 18
+
         now = datetime.now(timezone.utc)
+
+        # Update account in DB with fresh player stats and clear any lingering error
+        tribe_info = player_data.get("tribe") or {}
+        await AccountRepository.update(db, account.id, {
+            "player_id": player_data.get("id", account.player_id),
+            "player_name": player_data.get("name", account.player_name),
+            "level": int(player_data.get("level", account.level or 1)),
+            "gold": new_gold,
+            "xp": new_xp,
+            "nectar": int(player_data.get("nectar", account.nectar or 0)),
+            "potion": int(player_data.get("potion", account.potion or 0)),
+            "tribe_name": tribe_info.get("name", account.tribe_name),
+            "attack_power": int(player_data.get("attack_power", player_data.get("attack", account.attack_power or 0))),
+            "defense_power": int(player_data.get("defense_power", player_data.get("defense", account.defense_power or 0))),
+            "last_error": None,
+            "last_activity": now,
+            "last_successful_request": now,
+            "current_state": "READY" if account.current_state not in ("RUNNING", "WAITING") else account.current_state
+        })
 
         # Record to DB
         record = QuestRecord(

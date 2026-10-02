@@ -56,6 +56,24 @@ async def lifespan(app: FastAPI):
                     current_state="READY"
                 )
                 await AccountRepository.create(session, initial_acc)
+                await session.commit()
+
+    # Enforce clean environment variables when direct connection is configured
+    if not settings.proxy_enabled:
+        for var in ("http_proxy", "https_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+            os.environ.pop(var, None)
+
+    # Initial sync for registered accounts
+    async def initial_sync():
+        async with AsyncSessionLocal() as session:
+            accs = await AccountRepository.get_all(session)
+            for acc in accs:
+                try:
+                    await player_service.sync_player(acc.id, session)
+                except Exception as e:
+                    logger.warning("Initial sync for account %s: %s", acc.name, e)
+
+    asyncio.create_task(initial_sync())
 
     # Start health monitor
     await health_monitor.start()

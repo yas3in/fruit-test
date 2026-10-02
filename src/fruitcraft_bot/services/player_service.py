@@ -44,7 +44,8 @@ class PlayerService:
                 "last_successful_request": now,
                 "last_activity": now,
                 "last_login": now,
-                "captcha_status": "NONE"
+                "captcha_status": "NONE",
+                "last_error": None
             }
 
             if account.current_state in ("ERROR", "CAPTCHA REQUIRED"):
@@ -62,6 +63,7 @@ class PlayerService:
                 metadata_json="{}"
             )
             await ActivityRepository.add(db, activity)
+            await db.commit()
             return player_data
 
         except fb_exceptions.CaptchaRequired:

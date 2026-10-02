@@ -163,6 +163,21 @@ class BattleService:
         )
         await BattleRepository.add(db, record)
 
+        # Update Account in DB and clear error
+        acc_updates = {
+            "gold": account.gold + gold_earned,
+            "xp": account.xp + xp_earned,
+            "last_error": None,
+            "last_activity": datetime.now(timezone.utc),
+            "last_successful_request": datetime.now(timezone.utc)
+        }
+        if "player" in res and isinstance(res["player"], dict):
+            if "gold" in res["player"]:
+                acc_updates["gold"] = int(res["player"]["gold"])
+            if "xp" in res["player"]:
+                acc_updates["xp"] = int(res["player"]["xp"])
+        await AccountRepository.update(db, account.id, acc_updates)
+
         # Activity log
         await ActivityRepository.add(db, ActivityLog(
             account_id=account.id,
