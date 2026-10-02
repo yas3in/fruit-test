@@ -41,6 +41,10 @@ class MineService:
         minutes, seconds = divmod(remainder, 60)
         countdown_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
+        from src.fruitcraft_bot.automation.worker_manager import worker_manager
+        worker = worker_manager._workers.get(account_id, {}).get("mine")
+        worker_status = worker.status if worker else (account.mine_worker_status or "STOPPED")
+
         return {
             "account_id": account.id,
             "account_name": account.name,
@@ -54,7 +58,8 @@ class MineService:
             "number_of_collections": today_stats.get("collections_today", 0),
             "mine_power": max(100, account.level * 150),
             "mine_capacity": max(50000, account.level * 25000),
-            "worker_state": account.mine_worker_status or "STOPPED"
+            "worker_state": worker_status,
+            "worker_status": worker_status
         }
 
     @staticmethod

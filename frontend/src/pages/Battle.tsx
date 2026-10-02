@@ -6,12 +6,14 @@ import { StatusBadge } from "../components/StatusBadge";
 
 interface BattleProps {
   account: Account | null;
+  onRefresh?: () => void;
 }
 
-export const Battle: React.FC<BattleProps> = ({ account }) => {
+export const Battle: React.FC<BattleProps> = ({ account, onRefresh }) => {
   const [data, setData] = useState<BattleSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   // Configuration (Section 41)
   const [strategy, setStrategy] = useState("highest_power");
@@ -38,6 +40,8 @@ export const Battle: React.FC<BattleProps> = ({ account }) => {
 
   useEffect(() => {
     fetchBattles();
+    const interval = setInterval(fetchBattles, 4000);
+    return () => clearInterval(interval);
   }, [account?.id]);
 
   const handleStart = async () => {
@@ -52,7 +56,10 @@ export const Battle: React.FC<BattleProps> = ({ account }) => {
         delay_min: Number(delayMin),
         delay_max: Number(delayMax)
       });
+      setFeedback("Battle worker started! ⚔️");
+      setTimeout(() => setFeedback(null), 3000);
       await fetchBattles();
+      onRefresh?.();
     } catch (e: any) {
       alert(e.message || "Failed to start battle worker");
     } finally {
@@ -65,7 +72,10 @@ export const Battle: React.FC<BattleProps> = ({ account }) => {
     setActionLoading(true);
     try {
       await api.battles.stop(account.id);
+      setFeedback("Battle worker stopped.");
+      setTimeout(() => setFeedback(null), 3000);
       await fetchBattles();
+      onRefresh?.();
     } catch (e: any) {
       alert(e.message);
     } finally {
@@ -78,7 +88,10 @@ export const Battle: React.FC<BattleProps> = ({ account }) => {
     setActionLoading(true);
     try {
       await api.battles.pause(account.id);
+      setFeedback("Battle worker paused.");
+      setTimeout(() => setFeedback(null), 3000);
       await fetchBattles();
+      onRefresh?.();
     } catch (e: any) {
       alert(e.message);
     } finally {
@@ -91,7 +104,10 @@ export const Battle: React.FC<BattleProps> = ({ account }) => {
     setActionLoading(true);
     try {
       await api.battles.resume(account.id);
+      setFeedback("Battle worker resumed.");
+      setTimeout(() => setFeedback(null), 3000);
       await fetchBattles();
+      onRefresh?.();
     } catch (e: any) {
       alert(e.message);
     } finally {
@@ -107,7 +123,7 @@ export const Battle: React.FC<BattleProps> = ({ account }) => {
     );
   }
 
-  const workerStatus = account.battle_worker_status || "STOPPED";
+  const workerStatus = data?.worker_status || account.battle_worker_status || "STOPPED";
 
   return (
     <div>
@@ -119,9 +135,23 @@ export const Battle: React.FC<BattleProps> = ({ account }) => {
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchBattles} disabled={loading}>
-          <RefreshCw size={14} /> Refresh
+          <RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh
         </button>
       </div>
+
+      {feedback && (
+        <div style={{
+          background: "rgba(16, 185, 129, 0.15)",
+          border: "1px solid var(--success)",
+          padding: "10px 16px",
+          borderRadius: 8,
+          marginBottom: 16,
+          color: "var(--success)",
+          fontWeight: 500
+        }}>
+          {feedback}
+        </div>
+      )}
 
       {/* Control Buttons */}
       <div className="card-panel" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>

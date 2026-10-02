@@ -45,9 +45,19 @@ class QuestWorker(BaseWorker):
                     account_id=self.account_id,
                     db=session
                 )
+                if res.get("result") == "WAITING_COOLDOWN":
+                    self.status = "WAITING"
+                    self.last_action = res.get("message", "All 10 cards cooling down")
+                    self.next_action = "Waiting 10s for cards to recover..."
+                    self.last_error = None
+                    await self._emit_status()
+                    await asyncio.sleep(10)
+                    return
+
                 self.quests_done += 1
                 self.action_count += 1
-                self.last_action = f"Quest completed: +{res['gold_earned']:,} Gold, +{res['xp_earned']:,} XP"
+                card_lbl = f" with {res.get('card_name')}" if res.get("card_name") else ""
+                self.last_action = f"Quest completed{card_lbl}: +{res['gold_earned']:,} Gold, +{res['xp_earned']:,} XP"
                 self.last_error = None
             except Exception as e:
                 self.last_error = str(e)

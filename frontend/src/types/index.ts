@@ -59,6 +59,8 @@ export interface BattleSummary {
   gold_earned_today: number;
   xp_earned_today: number;
   recent_battles: BattleHistoryItem[];
+  worker_status?: string;
+  worker_state?: string;
 }
 
 export interface MineInfo {
@@ -75,6 +77,7 @@ export interface MineInfo {
   mine_power: number;
   mine_capacity: number;
   worker_state: string;
+  worker_status?: string;
 }
 
 export interface QuestInfo {

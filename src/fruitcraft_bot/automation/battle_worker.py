@@ -55,6 +55,15 @@ class BattleWorker(BaseWorker):
                     min_gold=self.min_gold,
                     strategy=self.strategy
                 )
+                if res.get("result") == "WAITING_CARDS":
+                    self.status = "WAITING"
+                    self.last_action = res.get("message", "All battle cards cooling down")
+                    self.next_action = "Waiting 15s for cards to recover..."
+                    self.last_error = None
+                    await self._emit_status()
+                    await asyncio.sleep(15)
+                    return
+
                 self.battles_done += 1
                 self.action_count += 1
                 self.last_action = f"Battle {res['result']} vs {res['opponent']} (+{res['gold_earned']:,} Gold)"

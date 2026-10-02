@@ -6,11 +6,14 @@ import { StatusBadge } from "../components/StatusBadge";
 
 interface MineProps {
   account: Account | null;
+  onRefresh?: () => void;
 }
 
-export const Mine: React.FC<MineProps> = ({ account }) => {
+export const Mine: React.FC<MineProps> = ({ account, onRefresh }) => {
   const [mineData, setMineData] = useState<MineInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [countdown, setCountdown] = useState("00:00:00");
 
   const fetchMine = async () => {
@@ -29,6 +32,10 @@ export const Mine: React.FC<MineProps> = ({ account }) => {
 
   useEffect(() => {
     fetchMine();
+    const interval = setInterval(() => {
+      fetchMine();
+    }, 4000);
+    return () => clearInterval(interval);
   }, [account?.id]);
 
   // Live seconds countdown ticker
@@ -53,36 +60,76 @@ export const Mine: React.FC<MineProps> = ({ account }) => {
 
   const handleStart = async () => {
     if (!account) return;
-    await api.mine.start(account.id);
-    await fetchMine();
+    setActionLoading(true);
+    try {
+      await api.mine.start(account.id);
+      setFeedback("Started Mine Worker.");
+      await fetchMine();
+      onRefresh?.();
+    } catch (e: any) {
+      setFeedback(`Failed to start mine: ${e.message}`);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleStop = async () => {
     if (!account) return;
-    await api.mine.stop(account.id);
-    await fetchMine();
+    setActionLoading(true);
+    try {
+      await api.mine.stop(account.id);
+      setFeedback("Stopped Mine Worker.");
+      await fetchMine();
+      onRefresh?.();
+    } catch (e: any) {
+      setFeedback(`Failed to stop mine: ${e.message}`);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handlePause = async () => {
     if (!account) return;
-    await api.mine.pause(account.id);
-    await fetchMine();
+    setActionLoading(true);
+    try {
+      await api.mine.pause(account.id);
+      setFeedback("Paused Mine Worker.");
+      await fetchMine();
+      onRefresh?.();
+    } catch (e: any) {
+      setFeedback(`Failed to pause mine: ${e.message}`);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleResume = async () => {
     if (!account) return;
-    await api.mine.resume(account.id);
-    await fetchMine();
+    setActionLoading(true);
+    try {
+      await api.mine.resume(account.id);
+      setFeedback("Resumed Mine Worker.");
+      await fetchMine();
+      onRefresh?.();
+    } catch (e: any) {
+      setFeedback(`Failed to resume mine: ${e.message}`);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleCollectNow = async () => {
     if (!account) return;
+    setActionLoading(true);
     try {
       const res = await api.mine.collect(account.id);
-      alert(`Successfully collected ${res.gold_collected.toLocaleString()} gold!`);
+      setFeedback(`Successfully collected ${res.gold_collected.toLocaleString()} gold!`);
       await fetchMine();
+      onRefresh?.();
     } catch (e: any) {
-      alert(e.message);
+      setFeedback(`Error collecting gold: ${e.message}`);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -94,7 +141,7 @@ export const Mine: React.FC<MineProps> = ({ account }) => {
     );
   }
 
-  const workerStatus = account.mine_worker_status || "STOPPED";
+  const workerStatus = mineData?.worker_state || (mineData as any)?.worker_status || account.mine_worker_status || "STOPPED";
 
   return (
     <div>
@@ -106,41 +153,60 @@ export const Mine: React.FC<MineProps> = ({ account }) => {
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchMine} disabled={loading}>
-          <RefreshCw size={14} /> Refresh
+          <RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh
         </button>
       </div>
+
+      {feedback && (
+        <div style={{
+          background: "rgba(16, 185, 129, 0.15)",
+          border: "1px solid var(--success)",
+          padding: "10px 16px",
+          borderRadius: 8,
+          marginBottom: 16,
+          color: "var(--success)",
+          fontWeight: 500
+        }}>
+          {feedback}
+        </div>
+      )}
 
       {/* Controls */}
       <div className="card-panel" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
         <button
           className="btn btn-success"
           onClick={handleStart}
-          disabled={workerStatus === "RUNNING"}
+          disabled={actionLoading || workerStatus === "RUNNING"}
         >
           <Play size={16} /> Start Mine Worker
         </button>
         <button
           className="btn btn-danger"
           onClick={handleStop}
-          disabled={workerStatus === "STOPPED"}
+          disabled={actionLoading || workerStatus === "STOPPED"}
         >
           <Square size={16} /> Stop Mine Worker
         </button>
         <button
           className="btn btn-warning"
           onClick={handlePause}
-          disabled={workerStatus !== "RUNNING"}
+          disabled={actionLoading || workerStatus !== "RUNNING"}
         >
           <Pause size={16} /> Pause
         </button>
         <button
           className="btn btn-primary"
           onClick={handleResume}
-          disabled={workerStatus !== "PAUSED"}
+          disabled={actionLoading || workerStatus !== "PAUSED"}
         >
           <PlayCircle size={16} /> Resume
         </button>
-        <button className="btn btn-secondary" onClick={handleCollectNow} style={{ marginLeft: "auto" }}>
+        <button
+          className="btn btn-secondary"
+          onClick={handleCollectNow}
+          disabled={actionLoading}
+          style={{ marginLeft: "auto" }}
+        >
           <Coins size={16} color="var(--warning)" /> Collect Gold Now
         </button>
       </div>

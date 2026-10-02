@@ -43,9 +43,16 @@ class BattleService:
                 "duration": f"{b.duration_ms}ms" if b.duration_ms else "N/A"
             })
 
+        account = await AccountRepository.get_by_id(db, account_id)
+        from src.fruitcraft_bot.automation.worker_manager import worker_manager
+        worker = worker_manager._workers.get(account_id, {}).get("battle")
+        worker_status = worker.status if worker else (account.battle_worker_status if account else "STOPPED")
+
         return {
             **today_stats,
-            "recent_battles": formatted_history
+            "recent_battles": formatted_history,
+            "worker_status": worker_status,
+            "worker_state": worker_status
         }
 
     @staticmethod
@@ -92,7 +99,13 @@ class BattleService:
                     })
 
         if not usable_cards:
-            raise ValueError("No usable cards available for battle (all cards may be in cooldown).")
+            return {
+                "result": "WAITING_CARDS",
+                "opponent": "None",
+                "gold_earned": 0,
+                "xp_earned": 0,
+                "message": "All cards are in cooldown for battle."
+            }
 
         usable_cards.sort(key=lambda x: x["power"], reverse=True)
         battle_card_ids = [c["id"] for c in usable_cards[:4]]

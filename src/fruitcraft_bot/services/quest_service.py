@@ -26,27 +26,34 @@ class QuestService:
         recent_quests = await QuestRepository.get_recent(db, account_id, limit=1)
         last_quest = recent_quests[0] if recent_quests else None
 
+        from src.fruitcraft_bot.automation.worker_manager import worker_manager
+        worker = worker_manager._workers.get(account_id, {}).get("quest")
+        worker_status = worker.status if worker else (account.quest_worker_status or "STOPPED")
+
         return {
             "account_id": account.id,
             "account_name": account.name,
             "quests_completed_today": today_stats.get("quests_today", 0),
-            "current_quest": "Daily Adventure" if account.quest_worker_status == "RUNNING" else "Idle",
+            "current_quest": "Daily Adventure" if worker_status == "RUNNING" else "Idle",
             "last_quest_result": last_quest.result if last_quest else "None",
             "gold_earned": today_stats.get("gold_earned_today", 0),
             "xp_earned": today_stats.get("xp_earned_today", 0),
-            "worker_status": account.quest_worker_status or "STOPPED"
+            "worker_status": worker_status,
+            "worker_state": worker_status
         }
+
+    _cooldown_cache: Dict[int, float] = {}
 
     @staticmethod
     async def execute_quest_step(account_id: str, db: AsyncSession) -> Dict[str, Any]:
-        """Execute quest via FruitCraft API and update records."""
+        """Execute quest via FruitCraft API with 10-card fallback rotation."""
+        import time
         account = await AccountRepository.get_by_id(db, account_id)
         if not account:
             raise ValueError(f"Account {account_id} not found.")
 
         client = await client_pool.get_client(account.id, account.restore_key)
 
-        # Load player data and select exactly 1 weakest card using 10-card fallback rotation
         from src.fruitcraft_bot.bot_actions import parse_cards_list, get_sorted_weakest_cards, is_card_ready
 
         player_data = await client.load_player()
@@ -55,17 +62,42 @@ class QuestService:
         if not candidates:
             raise ValueError("No cards found in player collection.")
 
+        res = None
         selected_card = None
-        for candidate in candidates:
-            if is_card_ready(candidate):
+
+        # Iterate sequentially through the 10 weakest cards
+        for idx, candidate in enumerate(candidates, 1):
+            cid = candidate["id"]
+            if not is_card_ready(candidate, QuestService._cooldown_cache):
+                logger.info("Quest candidate #%d card %s (%s) is in cooldown. Checking next...", idx, cid, candidate["name"])
+                continue
+
+            try:
+                res = await client.do_quest(card_ids=[cid])
                 selected_card = candidate
+                QuestService._cooldown_cache[cid] = time.time() + 60
+                logger.info("Successfully executed quest with card %s (Lv %d, Pwr %d)", candidate["name"], candidate["level"], candidate["power"])
                 break
+            except (fb_exceptions.CardCoolingDown, fb_exceptions.CardInUse):
+                logger.warning("Card %s rejected by server (cooling down). Advancing to next weakest card...", cid)
+                QuestService._cooldown_cache[cid] = time.time() + 90
+                continue
+            except Exception as e:
+                err_msg = str(e).lower()
+                if "cooling down" in err_msg or "cooldown" in err_msg or "in use" in err_msg:
+                    logger.warning("Card %s rejected (%s). Advancing to next weakest card...", cid, e)
+                    QuestService._cooldown_cache[cid] = time.time() + 90
+                    continue
+                raise
 
-        if not selected_card:
-            raise ValueError("All 10 weakest cards are currently in cooldown.")
-
-        quest_cards = [selected_card["id"]]
-        res = await client.do_quest(card_ids=quest_cards)
+        if not res or not selected_card:
+            logger.info("All %d candidate cards currently in cooldown for account %s.", len(candidates), account_id)
+            return {
+                "result": "WAITING_COOLDOWN",
+                "message": "All 10 weakest cards are currently in cooldown. Waiting for cards to recover.",
+                "gold_earned": 0,
+                "xp_earned": 0
+            }
 
         gold_earned = int(res.get("gold", res.get("gold_earned", 0)))
         xp_earned = int(res.get("xp", res.get("xp_earned", 0)))
@@ -79,7 +111,7 @@ class QuestService:
             result="SUCCESS",
             gold_earned=gold_earned,
             xp_earned=xp_earned,
-            cards_used=json.dumps(quest_cards)
+            cards_used=json.dumps([selected_card["id"]])
         )
         await QuestRepository.add(db, record)
 
@@ -88,7 +120,7 @@ class QuestService:
             account_id=account.id,
             account_name=account.name,
             event_type="QUEST_COMPLETED",
-            message=f"Completed quest: +{gold_earned:,} Gold, +{xp_earned:,} XP"
+            message=f"Completed quest with {selected_card['name']} (Lv {selected_card['level']}): +{gold_earned:,} Gold, +{xp_earned:,} XP"
         ))
 
         # Notification
@@ -106,7 +138,8 @@ class QuestService:
         return {
             "result": "SUCCESS",
             "gold_earned": gold_earned,
-            "xp_earned": xp_earned
+            "xp_earned": xp_earned,
+            "card_name": selected_card["name"]
         }
 
 

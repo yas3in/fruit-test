@@ -6,11 +6,14 @@ import { StatusBadge } from "../components/StatusBadge";
 
 interface QuestsProps {
   account: Account | null;
+  onRefresh?: () => void;
 }
 
-export const Quests: React.FC<QuestsProps> = ({ account }) => {
+export const Quests: React.FC<QuestsProps> = ({ account, onRefresh }) => {
   const [questData, setQuestData] = useState<QuestInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const fetchQuests = async () => {
     if (!account) return;
@@ -27,40 +30,90 @@ export const Quests: React.FC<QuestsProps> = ({ account }) => {
 
   useEffect(() => {
     fetchQuests();
+    const interval = setInterval(fetchQuests, 4000);
+    return () => clearInterval(interval);
   }, [account?.id]);
 
   const handleStart = async () => {
     if (!account) return;
-    await api.quests.start(account.id);
-    await fetchQuests();
+    setActionLoading(true);
+    try {
+      await api.quests.start(account.id);
+      setFeedback("Quest worker started! 🚀 Running weakest card with 8s delay.");
+      setTimeout(() => setFeedback(null), 4000);
+      await fetchQuests();
+      onRefresh?.();
+    } catch (e: any) {
+      alert("Error starting worker: " + (e.message || e));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleStop = async () => {
     if (!account) return;
-    await api.quests.stop(account.id);
-    await fetchQuests();
+    setActionLoading(true);
+    try {
+      await api.quests.stop(account.id);
+      setFeedback("Quest worker stopped.");
+      setTimeout(() => setFeedback(null), 3000);
+      await fetchQuests();
+      onRefresh?.();
+    } catch (e: any) {
+      alert("Error stopping worker: " + (e.message || e));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handlePause = async () => {
     if (!account) return;
-    await api.quests.pause(account.id);
-    await fetchQuests();
+    setActionLoading(true);
+    try {
+      await api.quests.pause(account.id);
+      setFeedback("Quest worker paused.");
+      setTimeout(() => setFeedback(null), 3000);
+      await fetchQuests();
+      onRefresh?.();
+    } catch (e: any) {
+      alert("Error pausing worker: " + (e.message || e));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleResume = async () => {
     if (!account) return;
-    await api.quests.resume(account.id);
-    await fetchQuests();
+    setActionLoading(true);
+    try {
+      await api.quests.resume(account.id);
+      setFeedback("Quest worker resumed.");
+      setTimeout(() => setFeedback(null), 3000);
+      await fetchQuests();
+      onRefresh?.();
+    } catch (e: any) {
+      alert("Error resuming worker: " + (e.message || e));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleExecuteNow = async () => {
     if (!account) return;
+    setActionLoading(true);
     try {
       const res = await api.quests.execute(account.id);
-      alert(`Quest executed! +${res.gold_earned.toLocaleString()} Gold, +${res.xp_earned.toLocaleString()} XP`);
+      if (res.result === "WAITING_COOLDOWN") {
+        alert("⚠️ All 10 weakest cards are cooling down. Please wait a moment.");
+      } else {
+        alert(`✅ Quest executed! +${res.gold_earned.toLocaleString()} Gold, +${res.xp_earned.toLocaleString()} XP`);
+      }
       await fetchQuests();
+      onRefresh?.();
     } catch (e: any) {
-      alert(e.message);
+      alert(e.message || "Quest failed.");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -72,7 +125,7 @@ export const Quests: React.FC<QuestsProps> = ({ account }) => {
     );
   }
 
-  const workerStatus = account.quest_worker_status || "STOPPED";
+  const workerStatus = questData?.worker_status || account.quest_worker_status || "STOPPED";
 
   return (
     <div>
@@ -84,46 +137,65 @@ export const Quests: React.FC<QuestsProps> = ({ account }) => {
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchQuests} disabled={loading}>
-          <RefreshCw size={14} /> Refresh
+          <RefreshCw size={14} className={loading ? "spin" : ""} /> Refresh
         </button>
       </div>
+
+      {feedback && (
+        <div style={{
+          background: "rgba(16, 185, 129, 0.15)",
+          border: "1px solid var(--success)",
+          padding: "10px 16px",
+          borderRadius: 8,
+          marginBottom: 16,
+          color: "var(--success)",
+          fontWeight: 500
+        }}>
+          {feedback}
+        </div>
+      )}
 
       {/* Controls */}
       <div className="card-panel" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
         <button
           className="btn btn-success"
           onClick={handleStart}
-          disabled={workerStatus === "RUNNING"}
+          disabled={actionLoading || workerStatus === "RUNNING"}
         >
           <Play size={16} /> Start Quest Worker
         </button>
         <button
           className="btn btn-danger"
           onClick={handleStop}
-          disabled={workerStatus === "STOPPED"}
+          disabled={actionLoading || workerStatus === "STOPPED"}
         >
           <Square size={16} /> Stop Quest Worker
         </button>
         <button
           className="btn btn-warning"
           onClick={handlePause}
-          disabled={workerStatus !== "RUNNING"}
+          disabled={actionLoading || workerStatus !== "RUNNING"}
         >
           <Pause size={16} /> Pause
         </button>
         <button
           className="btn btn-primary"
           onClick={handleResume}
-          disabled={workerStatus !== "PAUSED"}
+          disabled={actionLoading || workerStatus !== "PAUSED"}
         >
           <PlayCircle size={16} /> Resume
         </button>
-        <button className="btn btn-secondary" onClick={handleExecuteNow} style={{ marginLeft: "auto" }}>
+        <button
+          className="btn btn-secondary"
+          onClick={handleExecuteNow}
+          disabled={actionLoading}
+          style={{ marginLeft: "auto" }}
+        >
           <Scroll size={16} color="var(--primary)" /> Execute Single Quest
         </button>
       </div>
 
-      {/* Quest Metrics (Section 43) */}
+      {/* Quest Metrics */}
       <div className="grid-cards">
         <div className="stat-card">
           <div className="stat-header">

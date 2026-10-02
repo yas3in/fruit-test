@@ -121,11 +121,11 @@ const MainApp: React.FC = () => {
             <Accounts accounts={accounts} onRefresh={fetchInitialData} />
           )}
 
-          {currentTab === "battle" && <Battle account={selectedAccount} />}
+          {currentTab === "battle" && <Battle account={selectedAccount} onRefresh={fetchInitialData} />}
 
-          {currentTab === "mine" && <Mine account={selectedAccount} />}
+          {currentTab === "mine" && <Mine account={selectedAccount} onRefresh={fetchInitialData} />}
 
-          {currentTab === "quests" && <Quests account={selectedAccount} />}
+          {currentTab === "quests" && <Quests account={selectedAccount} onRefresh={fetchInitialData} />}
 
           {currentTab === "cards" && <Cards account={selectedAccount} />}
 
