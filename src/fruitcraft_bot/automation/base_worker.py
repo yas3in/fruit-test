@@ -73,6 +73,7 @@ class BaseWorker:
             if self.last_error:
                 updates["last_error"] = self.last_error
             await AccountRepository.update(session, self.account_id, updates)
+            await session.commit()
 
     async def start(self):
         """Start worker loop."""

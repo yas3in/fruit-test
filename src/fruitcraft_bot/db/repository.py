@@ -3,7 +3,7 @@
 from datetime import datetime, timezone, date
 import json
 from typing import List, Optional, Dict, Any
-from sqlalchemy import select, update, delete, func, desc, and_
+from sqlalchemy import select, update, delete, func, desc, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.fruitcraft_bot.db.models import (
     Account, BattleRecord, QuestRecord, MineCollectionRecord,
@@ -74,8 +74,8 @@ class BattleRepository:
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         stmt = select(
             func.count(BattleRecord.id).label("total"),
-            func.sum(func.case((BattleRecord.result == "WIN", 1), else_=0)).label("wins"),
-            func.sum(func.case((BattleRecord.result == "LOSS", 1), else_=0)).label("losses"),
+            func.sum(case((BattleRecord.result == "WIN", 1), else_=0)).label("wins"),
+            func.sum(case((BattleRecord.result == "LOSS", 1), else_=0)).label("losses"),
             func.coalesce(func.sum(BattleRecord.gold_earned), 0).label("gold_earned"),
             func.coalesce(func.sum(BattleRecord.xp_earned), 0).label("xp_earned")
         ).where(

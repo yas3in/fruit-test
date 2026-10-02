@@ -69,29 +69,29 @@ class QuestService:
         for idx, candidate in enumerate(candidates, 1):
             cid = candidate["id"]
             if not is_card_ready(candidate, QuestService._cooldown_cache):
-                logger.info("Quest candidate #%d card %s (%s) is in cooldown. Checking next...", idx, cid, candidate["name"])
+                logger.debug("Quest candidate #%d card %s (%s) is in cooldown. Checking next...", idx, cid, candidate["name"])
                 continue
 
             try:
                 res = await client.do_quest(card_ids=[cid])
                 selected_card = candidate
                 QuestService._cooldown_cache[cid] = time.time() + 60
-                logger.info("Successfully executed quest with card %s (Lv %d, Pwr %d)", candidate["name"], candidate["level"], candidate["power"])
+                logger.info("⚔️ Quest executed with card %s (Lv %d, Pwr %d)", candidate["name"], candidate["level"], candidate["power"])
                 break
             except (fb_exceptions.CardCoolingDown, fb_exceptions.CardInUse):
-                logger.warning("Card %s rejected by server (cooling down). Advancing to next weakest card...", cid)
+                logger.debug("Card %s rejected by server (cooling down). Advancing to next weakest card...", cid)
                 QuestService._cooldown_cache[cid] = time.time() + 90
                 continue
             except Exception as e:
                 err_msg = str(e).lower()
                 if "cooling down" in err_msg or "cooldown" in err_msg or "in use" in err_msg:
-                    logger.warning("Card %s rejected (%s). Advancing to next weakest card...", cid, e)
+                    logger.debug("Card %s rejected (%s). Advancing to next weakest card...", cid, e)
                     QuestService._cooldown_cache[cid] = time.time() + 90
                     continue
                 raise
 
         if not res or not selected_card:
-            logger.info("All %d candidate cards currently in cooldown for account %s.", len(candidates), account_id)
+            logger.info("All %d candidate cards currently in cooldown for account %s. Waiting for cooldown...", len(candidates), account_id)
             return {
                 "result": "WAITING_COOLDOWN",
                 "message": "All 10 weakest cards are currently in cooldown. Waiting for cards to recover.",
@@ -134,6 +134,8 @@ class QuestService:
             account_name=account.name,
             metadata={"gold_earned": gold_earned, "xp_earned": xp_earned}
         )
+
+        await db.commit()
 
         return {
             "result": "SUCCESS",

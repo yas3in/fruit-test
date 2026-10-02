@@ -193,6 +193,7 @@ class BattleService:
                 "xp_earned": xp_earned
             }
         )
+        await db.commit()
 
         return {
             "result": result_str,

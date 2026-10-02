@@ -108,6 +108,7 @@ class MineService:
             account_name=account.name,
             metadata={"gold_collected": gold_collected}
         )
+        await db.commit()
 
         return {
             "status": "success",
